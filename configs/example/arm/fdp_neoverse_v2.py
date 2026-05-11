@@ -117,6 +117,26 @@ parser.add_argument(
     help="Disable FDP to evaluate baseline performance.",
 )
 
+parser.add_argument(
+    "--binary",
+    type=str,
+    default=None,
+    help="Path to a local binary to run.",
+)
+
+parser.add_argument(
+    "--app-args",
+    type=str,
+    default="",
+    help="Arguments to pass to the binary.",
+)
+
+parser.add_argument(
+    "--monolithic-iq",
+    action="store_true",
+    help="Use monolithic IQ instead of 9 partitioned IQs.",
+)
+
 args = parser.parse_args()
 
 
@@ -222,9 +242,12 @@ cache_hierarchy = CacheHierarchy()
 # Next setup the decoupled front-end. Its implemented in the O3 core.
 # Create the processor with one core
 
-processor = BaseCPUProcessor(
-    cores=[BaseCPUCore(neoverse_v2.NeoverseV2(), isa=ISA.ARM)]
+cpu_model = (
+    neoverse_v2.NeoverseV2Monolithic()
+    if args.monolithic_iq
+    else neoverse_v2.NeoverseV2()
 )
+processor = BaseCPUProcessor(cores=[BaseCPUCore(cpu_model, isa=ISA.ARM)])
 
 for core in processor.cores:
     cpu = core.core
@@ -256,7 +279,15 @@ board = SimpleBoard(
 # program compiled to the specified ISA. The `Resource` class will automatically
 # download the binary from the gem5 Resources cloud bucket if it's not already
 # present.
-board.set_se_binary_workload(obtain_resource(workloads[args.workload]))
+if args.binary:
+    import shlex
+
+    board.set_se_binary_workload(
+        BinaryResource(local_path=args.binary),
+        arguments=shlex.split(args.app_args),
+    )
+else:
+    board.set_se_binary_workload(obtain_resource(workloads[args.workload]))
 
 # Lastly we run the simulation.
 simulator = Simulator(board=board)

@@ -231,6 +231,38 @@ class NeoverseV2_BP(BranchPredictor):
     takenOnlyHistory = True
 
 
+#                Monolithic IQ
+# Total entries:
+#   IQ0+IQ1+IQ2+IQ3: 4*22 = 88
+#   IQ4+IQ5:         2*28 = 56
+#   IQ6+IQ7+IQ8:     3*16 = 48
+#   Total: 192 entries
+#
+# The monolithic pool contains all FUs from all 9 schedulers:
+#   Simple Int:   4 (IQ0*2 + IQ1*2)
+#   Complex Int:  2 (IQ2*1 + IQ3*1)
+#   FP:           4 (IQ4*2 + IQ5*2)
+#   Load:         3 (IQ6*1 + IQ7*1 + IQ8*1)
+#   Store:        2 (IQ7*1 + IQ8*1)
+
+
+class Neoverse_V2_Monolithic_FUP(FUPool):
+    FUList = [
+        NeoverseV2_Simple_Int(count=4),
+        NeoverseV2_Complex_Int(count=2),
+        NeoverseV2_FP(count=4),
+        NeoverseV2_Load(count=3),
+        NeoverseV2_Store(count=2),
+    ]
+
+
+class Neoverse_V2_IQ_Monolithic(IQUnit):
+    """Single monolithic IQ with 192 entries (sum of 9 partitioned IQs)."""
+
+    numEntries = 192
+    fuPool = Neoverse_V2_Monolithic_FUP()
+
+
 class NeoverseMMU(ArmMMU):
     itb = ArmTLB(
         entry_type="instruction",
@@ -369,3 +401,7 @@ class L2(Cache):
     # Simple stride prefetcher
     tags = BaseSetAssoc()
     replacement_policy = RRIPRP()
+
+
+class NeoverseV2Monolithic(NeoverseV2):
+    instQueues = [Neoverse_V2_IQ_Monolithic()]
